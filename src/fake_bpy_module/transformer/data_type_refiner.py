@@ -750,13 +750,25 @@ class DataTypeRefiner(TransformerBase):
         return []
 
     def _parse_from_description(
-        self, module_name: str, description_str: str | None = None,
+        self, document: nodes.document, module_name: str,
+        dtype_nodes: list[DataTypeNode],
+        description_str: str | None = None,
         additional_info: dict[str, Any] | None = None
     ) -> list[DataTypeNode]:
 
         uniq_full_names = self._entry_points_cache["uniq_full_names"]
         uniq_module_names = self._entry_points_cache["uniq_module_names"]
 
+        if description_str is not None and "rna_enum" in description_str:
+            enum_literal_type = get_rna_enum_items(document, description_str)
+            dtype_str = dtype_nodes[0].astext()
+            match dtype_str:
+                case "string":
+                    print(enum_literal_type)
+                    return [make_data_type_node(enum_literal_type)]
+                case "set":
+                    print(f"set[{enum_literal_type}]")
+                    return [make_data_type_node(f"set[{enum_literal_type}]")]
         if description_str == "An instance of this object.":
             s = self._parse_custom_data_type(
                 additional_info["self_class"], uniq_full_names,
@@ -773,7 +785,8 @@ class DataTypeRefiner(TransformerBase):
             new_dtype_nodes = []
 
             new_dtype_nodes.extend(self._parse_from_description(
-                module_name, description_str=description_str,
+                document, module_name, dtype_nodes,
+                description_str=description_str,
                 additional_info=additional_info))
 
             for dtype_node in dtype_nodes:
